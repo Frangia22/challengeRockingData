@@ -1,16 +1,16 @@
-import http.server #Modulo para manejar solicitudes http
-import socketserver # Modulo para exponer el microservicio
-import os #Modulo con funcionalidades dependientes del SO
-import json #Permite trabajar con archivos y cadenas de caracteres JSON
+import http.server
+import socketserver
+import os 
+import json 
 
 upload_file = './uploads'
 
 class CustomRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
-        if self.path == '/upload':
+        if self.path == '/upload-file':
             content_length = int(self.headers['Content-Length'])
             file_data = self.rfile.read(content_length)
-            file_name = self.headers['X-File-Name']
+            file_name = self.headers['File-Name']
             file_path = os.path.join(upload_file, file_name)
 
             with open(file_path, 'wb') as f:
@@ -22,23 +22,30 @@ class CustomRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(response).encode('utf-8'))
 
         else:
-            response = {'message': 'Lo siento hubo un error'}
-            self.send_error(404, response)
+            self.send_response(404)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            error_response = {'error': 'Ruta no encontrada'}
+            self.wfile.write(json.dumps(error_response).encode('utf-8'))
 
     def do_GET(self):
-        if self.path == '/list':
+        if self.path == '/files':
             files = os.listdir(upload_file)
             self.send_response(200)
             self.end_headers()
             response = {'files': files}
-            self.wfile.write(json.dumps(response).encode('utf-8'))
+            self.wfile.write(json.dumps(response, indent=4).encode('utf-8'))
 
         else:
-            super().do_GET()
+            self.send_response(404)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            error_response = {'error': 'Ruta no encontrada'}
+            self.wfile.write(json.dumps(error_response).encode('utf-8'))
 
     def do_DELETE(self):
-        if self.path.startswith('/delete/'):
-            filename = self.path[len('/delete/'):]
+        if self.path.startswith('/delete-file/'):
+            filename = self.path[len('/delete-file/'):]
 
             file_path = os.path.join(upload_file, filename)
             if os.path.exists(file_path):
@@ -54,15 +61,18 @@ class CustomRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps(response).encode('utf-8'))
 
         else:
-            response = {'message': 'Lo siento hubo un error'}
-            self.send_error(404, response)
+            self.send_response(404)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            error_response = {'error': 'Ruta no encontrada'}
+            self.wfile.write(json.dumps(error_response).encode('utf-8'))
 
 
 if __name__ == '__main__':
     if not os.path.exists(upload_file):
         os.makedirs(upload_file)
 
-    PORT = 5000
+    PORT = 8000
     Handler = CustomRequestHandler
 
     with socketserver.TCPServer(("", PORT), Handler) as httpd:
